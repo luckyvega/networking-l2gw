@@ -26,9 +26,11 @@ from oslo_service import loopingcall
 from networking_l2gw.services.l2gateway.agent import base_agent_manager
 from networking_l2gw.services.l2gateway.agent import l2gateway_config
 from networking_l2gw.services.l2gateway.agent.ovsdb import ovsdb_common_class
+from networking_l2gw.services.l2gateway.agent.ovsdb import ovsdb_connection as conn
 from networking_l2gw.services.l2gateway.agent.ovsdb import ovsdb_monitor
 from networking_l2gw.services.l2gateway.agent.ovsdb import ovsdb_writer
 from networking_l2gw.services.l2gateway.common import constants as n_const
+
 
 LOG = logging.getLogger(__name__)
 
@@ -70,9 +72,11 @@ class OVSDBManager(base_agent_manager.BaseAgentManager):
         try:
             host_splits = str(host).split(':')
             ovsdb_identifier = str(host_splits[0]).strip()
+            ovsdb_ip = str(host_splits[1]).strip()
+            ovsdb_port = str(host_splits[2]).strip()
             ovsdb_conf = {n_const.OVSDB_IDENTIFIER: ovsdb_identifier,
-                          'ovsdb_ip': str(host_splits[1]).strip(),
-                          'ovsdb_port': str(host_splits[2]).strip()}
+                          'ovsdb_ip': ovsdb_ip ,
+                          'ovsdb_port': ovsdb_port}
             priv_key_path = self.conf.ovsdb.l2_gw_agent_priv_key_base_path
             cert_path = self.conf.ovsdb.l2_gw_agent_cert_base_path
             ca_cert_path = self.conf.ovsdb.l2_gw_agent_ca_cert_base_path
@@ -97,6 +101,7 @@ class OVSDBManager(base_agent_manager.BaseAgentManager):
             LOG.debug("ovsdb_conf = %s", str(ovsdb_conf))
             gateway = l2gateway_config.L2GatewayConfig(ovsdb_conf)
             self.gateways[ovsdb_identifier] = gateway
+            self.idl_connections[ovsdb_identifier] = conn.OvsdbHardwareVtepIdl(self, 'tcp:' + ovsdb_ip + ':' + ovsdb_port, 3)
         except Exception as ex:
             LOG.exception(_LE("Exception %(ex)s occurred while processing "
                               "host %(host)s"), {'ex': ex, 'host': host})
@@ -278,10 +283,9 @@ class OVSDBManager(base_agent_manager.BaseAgentManager):
                     mac_dict, ovsdb_identifier)
         elif not self.enable_manager:
             if self._is_valid_request(ovsdb_identifier):
-                with self._open_connection(ovsdb_identifier) as ovsdb_fd:
-                    ovsdb_fd.insert_ucast_macs_remote(logical_switch_dict,
-                                                      locator_dict,
-                                                      mac_dict)
+                self.idl_connections[ovsdb_identifier].add_ucast_mac_remote(
+                    self, logical_switch_dict['uuid'], locator_dict['uuid'],
+                    mac_dict['mac'], mac_dict['ip_address'])
 
     def delete_vif_from_gateway(self, context, ovsdb_identifier,
                                 logical_switch_uuid, mac):
@@ -300,8 +304,10 @@ class OVSDBManager(base_agent_manager.BaseAgentManager):
                     mac, ovsdb_identifier)
         elif not self.enable_manager:
             if self._is_valid_request(ovsdb_identifier):
-                with self._open_connection(ovsdb_identifier) as ovsdb_fd:
-                    ovsdb_fd.delete_ucast_macs_remote(logical_switch_uuid, mac)
+                self.idl_connections[ovsdb_identifier].del_ucast_macs_remote(
+                    logical_switch_uuid,
+                    mac
+                )
 
     def update_vif_to_gateway(self, context, ovsdb_identifier,
                               locator_dict, mac_dict):
