@@ -62,3 +62,9 @@ class L2Gateway(model_base.BASEV2, models_v2.HasId,
                                cascade='all,delete')
     network_connections = orm.relationship(L2GatewayConnection,
                                            lazy='joined')
+
+
+class L2RemoteGateway(model_base.BASEV2, models_v2.HasId):
+    name = sa.Column(sa.String(255))
+    # should have hostname instead of IP address
+    ipaddr = sa.Column(sa.String(255))

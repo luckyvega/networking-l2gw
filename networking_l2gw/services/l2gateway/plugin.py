@@ -43,7 +43,8 @@ class L2GatewayPlugin(l2gateway_db.L2GatewayMixin):
     """
 
     supported_extension_aliases = ["l2-gateway",
-                                   "l2-gateway-connection"]
+                                   "l2-gateway-connection",
+                                   "l2-remote-gateway"]
 
     def __init__(self):
         """Do the initialization for the l2 gateway service plugin here."""
