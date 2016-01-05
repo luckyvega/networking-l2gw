@@ -68,3 +68,28 @@ class L2RemoteGateway(model_base.BASEV2, models_v2.HasId):
     name = sa.Column(sa.String(255))
     # should have hostname instead of IP address
     ipaddr = sa.Column(sa.String(255))
+
+
+class L2RemoteGatewayConnection(model_base.BASEV2, models_v2.HasId):
+    gateway = sa.Column(sa.String(36),
+                              sa.ForeignKey('l2gateways.id',
+                                            ondelete='CASCADE'))
+    network = sa.Column(sa.String(36),
+                           sa.ForeignKey('networks.id', ondelete='CASCADE'))
+    remote_gateway = sa.Column(sa.String(36),
+                           sa.ForeignKey('l2remotegateways.id', ondelete='CASCADE'))
+    seg_id = sa.Column(sa.String(255))
+    flood = sa.Column(sa.String(5))
+
+
+class L2RemoteMac(model_base.BASEV2, models_v2.HasId):
+    mac = sa.Column(sa.String(17))
+    ipaddr = sa.Column(sa.String(15))
+    remote_gateway = sa.Column(sa.String(36),
+                                  sa.ForeignKey('l2remotegatewayconnections.id', ondelete='CASCADE'))
+
+
+class L2RemoteGateway(model_base.BASEV2, models_v2.HasId):
+    name = sa.Column(sa.String(255))
+    # should have hostname instead of IP address
+    ipaddr = sa.Column(sa.String(255))
