@@ -117,5 +117,11 @@ base.FAULT_MAP.update({L2GatewayInUse: web_exc.HTTPConflict,
 class L2RemoteGatewayNotFound(exceptions.NotFound):
     message = _("The remote gateway %(id)s not found")
 
+class L2RemoteGatewayConnectionNotFound(exceptions.NotFound):
+    message = _("The remote gateway connection %(id)s not found")
+
+class L2RemoteGatewayNotFound(exceptions.NotFound):
+    message = _("The remote gateway %(id)s not found")
+
 class L2remoteGatewayNotFound(exceptions.NotFound):
     message = _("The remote gateway %(id)s not found")
