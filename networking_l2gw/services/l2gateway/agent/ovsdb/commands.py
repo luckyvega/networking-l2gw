@@ -143,19 +143,28 @@ class AddMcastMacsRemote(cmd.BaseCommand):
             UUID(self.logical_sw_uuid))
         if not switch:
             raise Exception('Logical Switch not found')
-        locator_set = []
-        for locator in self.locator_list:
-            if not locator.uuid:
-                locator = txn.insert(self.api._tables['Physical_Locator'])
-                locator.dst_ip = self.locator.dst_ip
-                locator.encapsulation_type = self.locator.encapsulation_type
-                locator_set.append(locator)
-            else:
-                locator = self.api._tables['Physical_Locator'].rows.get(
-                    UUID(locator.uuid))
-                locator_set.append(locator)
 
         mcast_macs_remote = txn.insert(self.api._tables['Mcast_Macs_Remote'])
         mcast_macs_remote.MAC = self.mac
         mcast_macs_remote.logical_switch = switch
+
+        locator_set = txn.insert(self.api._tables['Physical_Locator_Set'])
         mcast_macs_remote.locator_set = locator_set
+
+        locators = []
+
+        for locator in self.locator_list:
+            if not locator.uuid:
+                locator_db = txn.insert(self.api._tables['Physical_Locator'])
+                locator_db.dst_ip = locator.dst_ip
+                locator_db.encapsulation_type = locator.encapsulation_type
+                if locator.tunnel_key:
+                    locator_db.tunnel_key = locator.tunnel_key
+                locators.append(locator_db)
+            else:
+                locator_db = self.api._tables['Physical_Locator'].rows.get(
+                    UUID(locator.uuid))
+                locators.append(locator_db)
+
+        locator_set.locators = locators
+

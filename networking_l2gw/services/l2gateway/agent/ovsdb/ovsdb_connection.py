@@ -36,7 +36,7 @@ class Connection(connection.Connection):
         session.run()
         session.run()
 
-        helper = idlutils.get_schema_helper_from_stream_no_close(session.stream,
+        helper = idlutils.get_schema_helper_from_stream(session.stream,
                                                         'hardware_vtep')
         helper.register_all()
         self.idl = idl.Idl(self.connection, helper, session)

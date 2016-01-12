@@ -121,3 +121,31 @@ class L2GatewayPlugin(l2gateway_db.L2GatewayMixin):
             context, l2_gateway_connection)
         return super(L2GatewayPlugin, self).delete_l2_gateway_connection(
             context, l2_gateway_connection)
+
+    def create_l2_remote_gateway_connection(self, context,
+                                            l2_remote_gateway_connection):
+        rgw_db_conn = super(L2GatewayPlugin, self).\
+            create_l2_remote_gateway_connection(
+            context,l2_remote_gateway_connection)
+        rgw_conn = l2_remote_gateway_connection['l2_remote_gateway_connection']
+        if 'flood' in rgw_conn:
+            self._send_create_remote_unknown(context, rgw_conn)
+        return rgw_db_conn
+
+    def _send_create_remote_unknown(self, context, rgw_conn):
+
+        rgw = super(L2GatewayPlugin, self)._get_l2_remote_gateway(
+            context,
+            rgw_conn['remote_gateway'])
+        remote_gw_connection = {
+            'gateway': rgw_conn['gateway'],
+            'network': rgw_conn['network'],
+            'seg_id': int(rgw_conn['seg_id']),
+            'ipaddr': rgw.ipaddr
+            }
+
+        LOG.debug("Sending remote getway connection creation to L2GW agent.")
+        self._get_driver_for_provider(constants.l2gw
+                                      ).create_remote_unknown(
+            context,
+            remote_gw_connection)

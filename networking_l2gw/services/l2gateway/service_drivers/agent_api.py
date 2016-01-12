@@ -101,3 +101,22 @@ class L2gatewayAgentApi(object):
             msg_splits = message.split('\n')
             raise l2gw_exc.OVSDBError(message="Error on the OVSDB "
                                       "server: " + msg_splits[0])
+
+    def create_remote_unknown(self, context, ovsdb_identifier,
+                              remote_gw_connection):
+        LOG.debug("Sending create unknown to agent for ipaddr: '%s', "
+                  "seg_id: '%s'")
+        cctxt = self.client.prepare()
+        try:
+            return cctxt.call(context,
+                              'create_remote_unknown',
+                              ovsdb_identifier=ovsdb_identifier,
+                              network_id=remote_gw_connection['network'],
+                              ipaddr=remote_gw_connection['ipaddr'],
+                              seg_id=remote_gw_connection['seg_id']
+                              )
+        except Exception as ex:
+            message = str(ex)
+            msg_splits = message.split('\n')
+            raise l2gw_exc.OVSDBError(message="Error on the OVSDB "
+                                              "server: " + msg_splits[0])

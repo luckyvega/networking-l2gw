@@ -27,10 +27,10 @@ from networking_l2gw.services.l2gateway.agent import base_agent_manager
 from networking_l2gw.services.l2gateway.agent import l2gateway_config
 from networking_l2gw.services.l2gateway.agent.ovsdb import ovsdb_common_class
 from networking_l2gw.services.l2gateway.agent.ovsdb import ovsdb_connection as conn
+from networking_l2gw.services.l2gateway.agent.ovsdb import ovsdb_model
 from networking_l2gw.services.l2gateway.agent.ovsdb import ovsdb_monitor
 from networking_l2gw.services.l2gateway.agent.ovsdb import ovsdb_writer
 from networking_l2gw.services.l2gateway.common import constants as n_const
-
 
 LOG = logging.getLogger(__name__)
 
@@ -101,6 +101,7 @@ class OVSDBManager(base_agent_manager.BaseAgentManager):
             LOG.debug("ovsdb_conf = %s", str(ovsdb_conf))
             gateway = l2gateway_config.L2GatewayConfig(ovsdb_conf)
             self.gateways[ovsdb_identifier] = gateway
+            # IDL implementation
             self.idl_connections[ovsdb_identifier] = conn.OvsdbHardwareVtepIdl(self, 'tcp:' + ovsdb_ip + ':' + ovsdb_port, 3)
         except Exception as ex:
             LOG.exception(_LE("Exception %(ex)s occurred while processing "
@@ -364,9 +365,25 @@ class OVSDBManager(base_agent_manager.BaseAgentManager):
                     ovsdb_fd.update_connection_to_gateway(logical_switch_dict,
                                                           locator_dicts,
                                                           mac_dicts,
-                                                          port_dicts,
-                                                          ovsdb_identifier)
+                                                          port_dicts)
 
     def agent_to_plugin_rpc(self, ovsdb_data):
         self.plugin_rpc.update_ovsdb_changes(ctx.get_admin_context(),
                                              ovsdb_data)
+
+    def create_remote_unknown(self,context,
+                              ovsdb_identifier,
+                              network_id,
+                              ipaddr,
+                              seg_id):
+        LOG.debug("Got request to create unknown remote mac. ovsdb: '%s' "
+                  "network: '%s', ipaddr: '%s', seg_id: '%s'",
+                  ovsdb_identifier,
+                  network_id,
+                  ipaddr,
+                  seg_id)
+        idl_db_conn = self.idl_connections[ovsdb_identifier]
+        logical_sw = idl_db_conn.get_logical_switch_by_name(network_id)
+        idl_db_conn.add_mcast_macs_remote('unknown-dst', logical_sw.uuid,
+                                          [ovsdb_model.PhysicalLocator(
+                                              None, ipaddr, seg_id)]).execute()

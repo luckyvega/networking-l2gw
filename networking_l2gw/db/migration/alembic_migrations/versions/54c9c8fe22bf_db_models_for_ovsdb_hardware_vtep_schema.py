@@ -113,3 +113,7 @@ def downgrade():
     op.drop_table('ucast_macs_locals')
     op.drop_table('ucast_macs_remotes')
     op.drop_table('vlan_bindings')
+
+
+
+#  add new tables

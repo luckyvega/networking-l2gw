@@ -112,6 +112,25 @@ class L2GatewayMixin(l2gateway.L2GatewayPluginBase,
 
 
 
+    def _make_l2_remote_gateway_dict(self, rgw, fields=None):
+        res = {'id': rgw['id'],
+               'name': rgw['name'],
+               'ipaddr': rgw['ipaddr']}
+
+        return self._fields(res, fields)
+
+    def _make_l2_remote_gateway_conn_dict(self, rgw, fields=None):
+        res = {'id': rgw['id'],
+               'gateway': rgw['gateway'],
+               'network': rgw['network'],
+               'remote-gateway': rgw['remote_gateway'],
+               'seg_id': rgw['seg_id'],
+               'flood': rgw['flood']}
+
+        return self._fields(res, fields)
+
+
+
     def _make_l2gw_connections_dict(self, gw_conn, fields=None):
         if gw_conn is None:
             raise l2gw_exc.L2GatewayConnectionNotFound(id="")
@@ -510,6 +529,133 @@ class L2GatewayMixin(l2gateway.L2GatewayPluginBase,
 
 
 
+    def get_l2_remote_gateways(self, context, filters=None,
+                               fields=None,
+                               sorts=None, limit=None, marker=None,
+                               page_reverse=False):
+        self._admin_check(context, 'GET')
+        marker_obj = self._get_marker_obj(
+            context, 'l2_remote_gateway', limit, marker)
+        return self._get_collection(context, models.L2RemoteGateway,
+                                    self._make_l2_remote_gateway_dict,
+                                    filters=filters, fields=fields,
+                                    sorts=sorts, limit=limit,
+                                    marker_obj=marker_obj,
+                                    page_reverse=page_reverse)
+
+    def create_l2_remote_gateway(self, context, l2_remote_gateway):
+        self._admin_check(context, 'POST')
+        rgw = l2_remote_gateway['l2_remote_gateway']
+        with context.session.begin(subtransactions=True):
+            rgw_db = models.L2RemoteGateway(id=uuidutils.generate_uuid(),
+                                            name=rgw['name'],
+                                            ipaddr=rgw['ipaddr'])
+            context.session.add(rgw_db)
+
+        return self._make_l2_remote_gateway_dict(rgw_db)
+
+    def get_l2_remote_gateway(self, context, id, fields=None):
+        self._admin_check(context, 'GET')
+        return self._make_l2_remote_gateway_dict(
+            self._get_l2_remote_gateway(context, id, fields))
+
+    @staticmethod
+    def _get_l2_remote_gateway(context, id, fields=None):
+        try:
+            rgw = context.session.query(models.L2RemoteGateway).get(id)
+        except sa_orm_exc.NoResultFound:
+            raise l2gw_exc.L2RemoteGatewayNotFound(id=id)
+        return rgw
+
+    def delete_l2_remote_gateway(self, context, id):
+        self._admin_check(context, 'DELETE')
+        with context.session.begin(subtransactions=True):
+            rgw_db = self._get_l2_remote_gateway(context, id)
+            context.session.delete(rgw_db)
+        LOG.debug("l2 remote gateway '%s' was destroyed.", id)
+
+    def update_l2_remote_gateway(self, context, id, l2_remote_gateway):
+        self._admin_check(context, 'UPDATE')
+        with context.session.begin(subtransactions=True):
+            rgw_db = self._get_l2_remote_gateway(context, id)
+            rgw = l2_remote_gateway['l2_remote_gateway']
+            if 'name' in rgw:
+                rgw_db.name = rgw['name']
+            if 'ipaddr' in rgw:
+                rgw_db.ipaddr = rgw['ipaddr']
+        return self._make_l2_remote_gateway_dict(rgw_db)
+
+
+
+
+
+    def get_l2_remote_gateway_connections(self, context, filters=None,
+                                          fields=None,
+                                          sorts=None, limit=None, marker=None,
+                                          page_reverse=False):
+        self._admin_check(context, 'GET')
+        marker_obj = self._get_marker_obj(
+            context, 'l2_remote_gateway_connection', limit, marker)
+        return self._get_collection(context, models.L2RemoteGatewayConnection,
+                                    self._make_l2_remote_gateway_conn_dict,
+                                    filters=filters, fields=fields,
+                                    sorts=sorts, limit=limit,
+                                    marker_obj=marker_obj,
+                                    page_reverse=page_reverse)
+
+    def get_l2_remote_gateway_connection(self, context, id, fields=None):
+        self._admin_check(context, 'GET')
+        return self._make_l2_remote_gateway_conn_dict(
+            self._get_l2_remote_gateway_connection(context, id,
+                                               fields))
+
+    @staticmethod
+    def _get_l2_remote_gateway_connection(context, id, fields=None):
+        try:
+            rgw_con = context.session.query(models.L2RemoteGatewayConnection).get(id)
+        except sa_orm_exc.NoResultFound:
+            raise l2gw_exc.L2RemoteGatewayConnectionNotFound(id=id)
+        return rgw_con
+
+    def create_l2_remote_gateway_connection(self, context,
+                                            l2_remote_gateway_connection):
+        self._admin_check(context, 'POST')
+        rgw_conn = l2_remote_gateway_connection['l2_remote_gateway_connection']
+
+        with context.session.begin(subtransactions=True):
+            rgw_conn_db = models.L2RemoteGatewayConnection(
+                id=uuidutils.generate_uuid(),
+                gateway=rgw_conn['gateway'],
+                network=rgw_conn['network'],
+                remote_gateway=rgw_conn['remote_gateway']
+            )
+
+            if 'flood' in rgw_conn:
+                rgw_conn_db.flood=rgw_conn['flood']
+            else:
+                rgw_conn_db.flood='True'
+
+            if 'seg_id' in rgw_conn:
+                rgw_conn_db.seg_id=rgw_conn['seg_id']
+
+            context.session.add(rgw_conn_db)
+
+        return self._make_l2_remote_gateway_conn_dict(rgw_conn_db)
+
+    def delete_l2_remote_gateway_connection(self, context, id):
+        self._admin_check(context, 'DELETE')
+        with context.session.begin(subtransactions=True):
+            rgw_conn_db = self._get_l2_remote_gateway_connection(context, id)
+            context.session.delete(rgw_conn_db)
+        LOG.debug("l2 remote gateway connection '%s' was destroyed.", id)
+
+
+
+
+
+
+
+
     def _admin_check(self, context, action):
         """Admin role check helper."""
         # TODO(selva): his check should be required if the tenant_id is
@@ -536,6 +682,17 @@ class L2GatewayMixin(l2gateway.L2GatewayPluginBase,
         with session.begin():
             return session.query(models.L2GatewayDevice).filter_by(
                 l2_gateway_id=l2_gateway_id).all()
+
+    def get_ovsdb_identifiers(self, context, l2_gateway_id):
+        ovsdb_identifiers = []
+        session = context.session
+        with session.begin():
+            l2gw_list = session.query(models.L2GatewayDevice).filter_by(
+                l2_gateway_id=l2_gateway_id).all()
+            for l2gw in l2gw_list:
+                session.query(models.L2GatewayDevice).filter_by(
+                    l2_gateway_id=l2_gateway_id).all()
+
 
     def get_l2gateway_interfaces_by_device_id(self, context, device_id):
         """Get all l2gateway_interfaces_by device_id."""

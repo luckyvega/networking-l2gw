@@ -688,3 +688,22 @@ class L2gwRpcDriver(service_drivers.L2gwDriver):
                 port_dict)
         # call delete vif_from_gateway for ovsdb_id_set
         self._remove_vm_macs(context, network_id, ovsdb_id_set)
+
+    # if flood on WAN link in enabled. we create unknown-dst MCast MAC and
+    # link the Physical_Locator(S) of the WAN ad LAN tunnels to it. This will
+    # enable switching of packets ingressing from the WAN
+    def create_remote_unknown(self, context, remote_gw_connection):
+        LOG.debug("Got request to create remote gw connection : '%s' ", remote_gw_connection)
+        l2gateway_devices = (
+            self.service_plugin.get_l2gateway_devices_by_gateway_id(
+                context, remote_gw_connection.get('gateway')))
+        for device in l2gateway_devices:
+            physical_switch = db.get_physical_switch_by_name(
+                context, device.get('device_name'))
+            ovsdb_identifier = physical_switch.get('ovsdb_identifier')
+            self.agent_rpc.\
+                create_remote_unknown(context,
+                                      ovsdb_identifier,
+                                      remote_gw_connection)
+
+
