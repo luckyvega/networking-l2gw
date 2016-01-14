@@ -21,6 +21,7 @@ from neutron.services import provider_configuration as pconf
 from neutron.services import service_base
 
 from networking_l2gw.db.l2gateway import l2gateway_db
+from networking_l2gw.extensions import l2remotemac
 from networking_l2gw.services.l2gateway.common import config
 from networking_l2gw.services.l2gateway.common import constants
 
@@ -45,7 +46,8 @@ class L2GatewayPlugin(l2gateway_db.L2GatewayMixin):
     supported_extension_aliases = ["l2-gateway",
                                    "l2-gateway-connection",
                                    "l2-remote-gateway",
-                                   "l2-remote-gateway-connection"]
+                                   "l2-remote-gateway-connection",
+                                   'l2-remote-mac']
 
     def __init__(self):
         """Do the initialization for the l2 gateway service plugin here."""
@@ -149,3 +151,44 @@ class L2GatewayPlugin(l2gateway_db.L2GatewayMixin):
                                       ).create_remote_unknown(
             context,
             remote_gw_connection)
+
+    def delete_l2_remote_gateway_connection(self, context, id):
+        LOG.debug("Sending delete remote getway connection creation "
+                  "to L2GW agent.")
+        self._get_driver_for_provider(constants.l2gw
+                                     ).delete_l2_remote_gateway_connection(
+            context, id)
+        super(L2GatewayPlugin, self).\
+            delete_l2_remote_gateway_connection(context,id)
+
+    def create_l2_remote_mac(self, context, l2_remote_mac):
+        LOG.debug('creating new remote MAC')
+
+        remote_mac = l2_remote_mac['l2_remote_mac']
+
+        rgw_conn_db = super(L2GatewayPlugin,self).\
+            _get_l2_remote_gateway_connection(context,
+                                              remote_mac['rgw_connection']
+                                              )
+        sw_db = super(L2GatewayPlugin,self).\
+            _get_logical_sw_by_name(context, rgw_conn_db['network'])
+
+        rgw_db = super(L2GatewayPlugin,self).\
+            _get_l2_remote_gateway(context,rgw_conn_db['remote_gateway'])
+
+        locator_db = super(L2GatewayPlugin,self).\
+            _get_physical_locator_by_ip_and_key(context,
+                                                rgw_db['ipaddr'],
+                                                int(rgw_conn_db['seg_id']))
+        ucast_mac = {'mac': remote_mac['mac'],
+                     'sw': sw_db['uuid'],
+                     'locator': locator_db['uuid'],
+                     'ipaddr': None,
+                     'gateway': rgw_conn_db['gateway']
+                     }
+        self._get_driver_for_provider(constants.l2gw
+                                      ).add_ucast_mac_remote(context,
+                                                             ucast_mac)
+
+    def delete_l2_remote_mac(self, context, id):
+        LOG.debug("Deleting remote MAC id: '%s'",id)

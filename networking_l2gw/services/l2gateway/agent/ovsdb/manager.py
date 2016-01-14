@@ -387,3 +387,33 @@ class OVSDBManager(base_agent_manager.BaseAgentManager):
         idl_db_conn.add_mcast_macs_remote('unknown-dst', logical_sw.uuid,
                                           [ovsdb_model.PhysicalLocator(
                                               None, ipaddr, seg_id)]).execute()
+
+    def delete_remote_unknown(self, context, ovsdb_identifier,
+                              network_id, ipaddr, tunnel_key):
+        idl_db_conn = self.idl_connections[ovsdb_identifier]
+        idl_db_conn.del_mcast_macs_remote('unknown-dst', network_id).execute()
+
+    def add_ucast_mac_remote(self, context, ovsdb_identifier,
+                             logical_sw_uuid, locator, mac, ipaddr):
+        LOG.debug("Adding new MAC '%s' to locator '%s' on switch '%s'",
+                  mac,locator,logical_sw_uuid)
+        idl_db_conn = self.idl_connections[ovsdb_identifier]
+        idl_db_conn.add_ucast_mac_remote(
+            logical_sw_uuid, ovsdb_model.PhysicalLocator(locator, None), mac, ipaddr).execute()
+
+    def create_remote_unknown(self,context,
+                              ovsdb_identifier,
+                              network_id,
+                              ipaddr,
+                              seg_id):
+        LOG.debug("Got request to create unknown remote mac. ovsdb: '%s' "
+                  "network: '%s', ipaddr: '%s', seg_id: '%s'",
+                  ovsdb_identifier,
+                  network_id,
+                  ipaddr,
+                  seg_id)
+        idl_db_conn = self.idl_connections[ovsdb_identifier]
+        logical_sw = idl_db_conn.get_logical_switch_by_name(network_id)
+        idl_db_conn.add_mcast_macs_remote('unknown-dst', logical_sw.uuid,
+                                          [ovsdb_model.PhysicalLocator(
+                                              None, ipaddr, seg_id)]).execute()

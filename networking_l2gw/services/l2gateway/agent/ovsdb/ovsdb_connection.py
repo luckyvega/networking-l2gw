@@ -135,3 +135,12 @@ class OvsdbHardwareVtepIdl():
 
     def add_mcast_macs_remote(self, mac, logical_sw_uuid, locator_list):
         return cmd.AddMcastMacsRemote(self, mac, logical_sw_uuid, locator_list)
+
+    def del_mcast_macs_remote(self, mac, logical_sw):
+        switch = idlutils.row_by_value(self.idl, 'Logical_Switch',
+                                       'name',
+                                       logical_sw, None)
+        unknown_macs = idlutils.row_by_value(self.idl, 'Mcast_Macs_Remote',
+                                'logical_switch',
+                                switch, None)
+        return cmd.DelMcastMacsRemote(self,unknown_macs.uuid)

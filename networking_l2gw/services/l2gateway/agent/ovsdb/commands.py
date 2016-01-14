@@ -168,3 +168,31 @@ class AddMcastMacsRemote(cmd.BaseCommand):
 
         locator_set.locators = locators
 
+class DelMcastMacsRemote(cmd.BaseCommand):
+    def __init__(self, api, uuid):
+        super(DelMcastMacsRemote, self).__init__(api)
+        self.uuid = uuid
+
+    def run_idl(self, txn):
+        row = self.api._tables['Mcast_Macs_Remote'].rows.get(self.uuid)
+        if row:
+            row.delete()
+
+
+        locators = []
+
+        for locator in self.locator_list:
+            if not locator.uuid:
+                locator_db = txn.insert(self.api._tables['Physical_Locator'])
+                locator_db.dst_ip = locator.dst_ip
+                locator_db.encapsulation_type = locator.encapsulation_type
+                if locator.tunnel_key:
+                    locator_db.tunnel_key = locator.tunnel_key
+                locators.append(locator_db)
+            else:
+                locator_db = self.api._tables['Physical_Locator'].rows.get(
+                    UUID(locator.uuid))
+                locators.append(locator_db)
+
+        locator_set.locators = locators
+
