@@ -143,3 +143,11 @@ class L3DvrAgentNotFound(exceptions.NotFound):
 
 class DvrAgentHostnameNotFound(exceptions.NeutronException):
     message = _("Hostname '%(host)' has 127.0.0.1 address")
+
+
+class L2RemoteGatewayNotFound(exceptions.NotFound):
+    message = _("The remote gateway %(id)s not found")
+
+
+class L2RemoteGatewayConnectionNotFound(exceptions.NotFound):
+    message = _("The remote gateway connection %(id)s not found")
