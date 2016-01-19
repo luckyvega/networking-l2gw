@@ -53,6 +53,9 @@ def add_physical_locator(context, record_dict):
             uuid=record_dict['uuid'],
             dst_ip=record_dict['dst_ip'],
             ovsdb_identifier=record_dict['ovsdb_identifier'])
+        # if 'tunnel_key' in record_dict:
+        if not isinstance(record_dict[u'tunnel_key'], list):
+            locator.tunnel_key = record_dict['tunnel_key']
         session.add(locator)
 
 
