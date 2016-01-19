@@ -120,3 +120,11 @@ base.FAULT_MAP.update({L2GatewayInUse: web_exc.HTTPConflict,
                        L2MultipleGatewayConnections: web_exc.HTTPConflict,
                        L2GatewayDuplicateSegmentationID: web_exc.HTTPConflict,
                        OVSDBError: web_exc.HTTPConflict})
+
+
+class L2RemoteGatewayNotFound(exceptions.NotFound):
+    message = _("The remote gateway %(id)s not found")
+
+
+class L2RemoteGatewayConnectionNotFound(exceptions.NotFound):
+    message = _("The remote gateway connection %(id)s not found")
