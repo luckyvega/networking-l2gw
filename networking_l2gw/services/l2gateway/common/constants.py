@@ -21,7 +21,7 @@ AGENT_TYPE_L2GATEWAY = 'L2 Gateway agent'
 L2GW_INVALID_OVSDB_IDENTIFIER = 101
 
 ERROR_DICT = {L2GW_INVALID_OVSDB_IDENTIFIER: "Invalid ovsdb_identifier in the "
-              "request"}
+                                             "request"}
 
 MONITOR = 'monitor'
 OVSDB_SCHEMA_NAME = 'hardware_vtep'
@@ -31,7 +31,11 @@ NETWORK_ID = 'network_id'
 SEG_ID = 'segmentation_id'
 L2GATEWAY_ID = 'l2_gateway_id'
 GATEWAY_RESOURCE_NAME = 'l2_gateway'
+REMOTE_GATEWAY_RESOURCE_NAME = 'l2_remote_gateway'
 L2_GATEWAYS = 'l2-gateways'
+L2_REMOTE_GATEWAYS = 'l2-remote-gateways'
+L2_REMOTE_GATEWAY_CONNECTIONS = 'l2-remote-gateway_connections'
+L2_REMOTE_MACS = 'l2-remote-macs'
 DEVICE_ID_ATTR = 'device_name'
 IFACE_NAME_ATTR = 'interfaces'
 CONNECTION_RESOURCE_NAME = 'l2_gateway_connection'

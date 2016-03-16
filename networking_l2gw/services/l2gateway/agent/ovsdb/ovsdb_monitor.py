@@ -77,51 +77,51 @@ class OVSDBMonitor(base_connection.BaseConnection):
     def _setup_dispatch_table(self):
         self.dispatch_table = {'Logical_Switch': self._process_logical_switch,
                                'Ucast_Macs_Local':
-                               self._process_ucast_macs_local,
+                                   self._process_ucast_macs_local,
                                'Physical_Locator':
-                               self._process_physical_locator,
+                                   self._process_physical_locator,
                                'Ucast_Macs_Remote':
-                               self._process_ucast_macs_remote,
+                                   self._process_ucast_macs_remote,
                                'Mcast_Macs_Local':
-                               self._process_mcast_macs_local,
+                                   self._process_mcast_macs_local,
                                'Physical_Locator_Set':
-                               self._process_physical_locator_set
+                                   self._process_physical_locator_set
                                }
 
     def set_monitor_response_handler(self, addr=None):
         """Monitor OVSDB tables to receive events for any changes in OVSDB."""
         if self.connected:
-                op_id = str(random.getrandbits(128))
-                props = {'select': {'initial': True,
-                                    'insert': True,
-                                    'delete': True,
-                                    'modify': True}}
-                monitor_message = {'id': op_id,
-                                   'method': 'monitor',
-                                   'params': [n_const.OVSDB_SCHEMA_NAME,
-                                              None,
-                                              {'Logical_Switch': [props],
-                                               'Physical_Switch': [props],
-                                               'Physical_Port': [props],
-                                               'Ucast_Macs_Local': [props],
-                                               'Ucast_Macs_Remote': [props],
-                                               'Physical_Locator': [props],
-                                               'Mcast_Macs_Local': [props],
-                                               'Physical_Locator_Set': [props]}
-                                              ]}
-                self._set_handler("update", self._update_event_handler)
-                if not self.send(monitor_message, addr=addr):
-                    # Return so that this will retried in the next iteration
-                    return
-                try:
-                    response_result = self._process_response(op_id)
-                except exceptions.OVSDBError:
-                    with excutils.save_and_reraise_exception():
-                        if self.enable_manager:
-                            self.check_monitor_table_thread = False
-                        LOG.exception(_LE("Exception while receiving the "
-                                          "response for the monitor message"))
-                self._process_monitor_msg(response_result, addr)
+            op_id = str(random.getrandbits(128))
+            props = {'select': {'initial': True,
+                                'insert': True,
+                                'delete': True,
+                                'modify': True}}
+            monitor_message = {'id': op_id,
+                               'method': 'monitor',
+                               'params': [n_const.OVSDB_SCHEMA_NAME,
+                                          None,
+                                          {'Logical_Switch': [props],
+                                           'Physical_Switch': [props],
+                                           'Physical_Port': [props],
+                                           'Ucast_Macs_Local': [props],
+                                           'Ucast_Macs_Remote': [props],
+                                           'Physical_Locator': [props],
+                                           'Mcast_Macs_Local': [props],
+                                           'Physical_Locator_Set': [props]}
+                                          ]}
+            self._set_handler("update", self._update_event_handler)
+            if not self.send(monitor_message, addr=addr):
+                # Return so that this will retried in the next iteration
+                return
+            try:
+                response_result = self._process_response(op_id)
+            except exceptions.OVSDBError:
+                with excutils.save_and_reraise_exception():
+                    if self.enable_manager:
+                        self.check_monitor_table_thread = False
+                    LOG.exception(_LE("Exception while receiving the "
+                                      "response for the monitor message"))
+            self._process_monitor_msg(response_result, addr)
 
     def _update_event_handler(self, message, addr):
         self._process_update_event(message, addr)
@@ -165,13 +165,13 @@ class OVSDBMonitor(base_connection.BaseConnection):
             result = self._response(op_id)
         if not result and count >= n_const.MAX_RETRIES:
             raise exceptions.OVSDBError(
-                message="OVSDB server did not respond within "
-                "max retry attempts.")
+                    message="OVSDB server did not respond within "
+                            "max retry attempts.")
         error = result.get("error", None)
         if error:
             raise exceptions.OVSDBError(
-                message="Error from the OVSDB server %s" % error
-                )
+                    message="Error from the OVSDB server %s" % error
+            )
         return result
 
     def _default_echo_handler(self, message, addr):
@@ -208,10 +208,10 @@ class OVSDBMonitor(base_connection.BaseConnection):
                     message_mark = 0
                     for i, c in enumerate(response):
                         if c == '{' and not (prev_char and
-                                             prev_char == '\\'):
+                                                     prev_char == '\\'):
                             lc += 1
                         elif c == '}' and not (prev_char and
-                                               prev_char == '\\'):
+                                                       prev_char == '\\'):
                             rc += 1
                         if rc > lc:
                             raise Exception(_LE("json string not valid"))
@@ -219,7 +219,7 @@ class OVSDBMonitor(base_connection.BaseConnection):
                             chunks.append(response[message_mark:i + 1])
                             message = "".join(chunks)
                             eventlet.greenthread.spawn_n(
-                                self._on_remote_message, message)
+                                    self._on_remote_message, message)
                             lc = rc = 0
                             message_mark = i + 1
                             chunks = []
@@ -254,55 +254,55 @@ class OVSDBMonitor(base_connection.BaseConnection):
 
     def _form_ovsdb_data(self, data_dict, addr):
         return {n_const.OVSDB_IDENTIFIER: str(addr) if (
-                self.enable_manager) else (self.gw_config.ovsdb_identifier),
+            self.enable_manager) else (self.gw_config.ovsdb_identifier),
                 'new_logical_switches': self._get_list(
-                    data_dict.get('new_logical_switches')),
+                        data_dict.get('new_logical_switches')),
                 'new_physical_switches': self._get_list(
-                    data_dict.get('new_physical_switches')),
+                        data_dict.get('new_physical_switches')),
                 'new_physical_ports': self._get_list(
-                    data_dict.get('new_physical_ports')),
+                        data_dict.get('new_physical_ports')),
                 'new_physical_locators': self._get_list(
-                    data_dict.get('new_physical_locators')),
+                        data_dict.get('new_physical_locators')),
                 'new_local_macs': self._get_list(
-                    data_dict.get('new_local_macs')),
+                        data_dict.get('new_local_macs')),
                 'new_remote_macs': self._get_list(
-                    data_dict.get('new_remote_macs')),
+                        data_dict.get('new_remote_macs')),
                 'new_mlocal_macs': self._get_list(
-                    data_dict.get('new_mlocal_macs')),
+                        data_dict.get('new_mlocal_macs')),
                 'new_locator_sets': self._get_list(
-                    data_dict.get('new_locator_sets')),
+                        data_dict.get('new_locator_sets')),
                 'deleted_logical_switches': self._get_list(
-                    data_dict.get('deleted_logical_switches')),
+                        data_dict.get('deleted_logical_switches')),
                 'deleted_physical_switches': self._get_list(
-                    data_dict.get('deleted_physical_switches')),
+                        data_dict.get('deleted_physical_switches')),
                 'deleted_physical_ports': self._get_list(
-                    data_dict.get('deleted_physical_ports')),
+                        data_dict.get('deleted_physical_ports')),
                 'deleted_physical_locators': self._get_list(
-                    data_dict.get('deleted_physical_locators')),
+                        data_dict.get('deleted_physical_locators')),
                 'deleted_local_macs': self._get_list(
-                    data_dict.get('deleted_local_macs')),
+                        data_dict.get('deleted_local_macs')),
                 'deleted_remote_macs': self._get_list(
-                    data_dict.get('deleted_remote_macs')),
+                        data_dict.get('deleted_remote_macs')),
                 'deleted_mlocal_macs': self._get_list(
-                    data_dict.get('deleted_mlocal_macs')),
+                        data_dict.get('deleted_mlocal_macs')),
                 'deleted_locator_sets': self._get_list(
-                    data_dict.get('deleted_locator_sets')),
+                        data_dict.get('deleted_locator_sets')),
                 'modified_logical_switches': self._get_list(
-                    data_dict.get('modified_logical_switches')),
+                        data_dict.get('modified_logical_switches')),
                 'modified_physical_switches': self._get_list(
-                    data_dict.get('modified_physical_switches')),
+                        data_dict.get('modified_physical_switches')),
                 'modified_physical_ports': self._get_list(
-                    data_dict.get('modified_physical_ports')),
+                        data_dict.get('modified_physical_ports')),
                 'modified_physical_locators': self._get_list(
-                    data_dict.get('modified_physical_locators')),
+                        data_dict.get('modified_physical_locators')),
                 'modified_local_macs': self._get_list(
-                    data_dict.get('modified_local_macs')),
+                        data_dict.get('modified_local_macs')),
                 'modified_remote_macs': self._get_list(
-                    data_dict.get('modified_remote_macs')),
+                        data_dict.get('modified_remote_macs')),
                 'modified_mlocal_macs': self._get_list(
-                    data_dict.get('modified_mlocal_macs')),
+                        data_dict.get('modified_mlocal_macs')),
                 'modified_locator_sets': self._get_list(
-                    data_dict.get('modified_locator_sets'))}
+                        data_dict.get('modified_locator_sets'))}
 
     def _process_physical_port(self, uuid, uuid_dict, port_map, data_dict):
         """Processes Physical_Port record from the OVSDB event."""
@@ -335,11 +335,11 @@ class OVSDBMonitor(base_connection.BaseConnection):
             port.vlan_bindings = vlan_bindings
             if old_row:
                 modified_physical_ports = data_dict.get(
-                    'modified_physical_ports')
+                        'modified_physical_ports')
                 modified_physical_ports.append(port)
             else:
                 new_physical_ports = data_dict.get(
-                    'new_physical_ports')
+                        'new_physical_ports')
                 new_physical_ports.append(port)
         elif old_row:
             # Port is deleted permanently from OVSDB server
@@ -379,8 +379,8 @@ class OVSDBMonitor(base_connection.BaseConnection):
             if type(switch_fault_status) is list:
                 switch_fault_status = None
             phys_switch = ovsdb_schema.PhysicalSwitch(
-                uuid, new_row.get('name'), new_row.get('tunnel_ips'),
-                switch_fault_status)
+                    uuid, new_row.get('name'), new_row.get('tunnel_ips'),
+                    switch_fault_status)
             # Now, store mapping of physical ports to
             # physical switch so that it is useful while
             # processing Physical_Switch record
@@ -391,11 +391,11 @@ class OVSDBMonitor(base_connection.BaseConnection):
                         pport.physical_switch_id = uuid
             if old_row:
                 modified_physical_switches = data_dict.get(
-                    'modified_physical_switches')
+                        'modified_physical_switches')
                 modified_physical_switches.append(phys_switch)
             else:
                 new_physical_switches = data_dict.get(
-                    'new_physical_switches')
+                        'new_physical_switches')
                 new_physical_switches.append(phys_switch)
         elif old_row:
             # Physical switch is deleted permanently from OVSDB
@@ -404,10 +404,10 @@ class OVSDBMonitor(base_connection.BaseConnection):
             if type(switch_fault_status) is list:
                 switch_fault_status = None
             phys_switch = ovsdb_schema.PhysicalSwitch(
-                uuid, old_row.get('name'), old_row.get('tunnel_ips'),
-                switch_fault_status)
+                    uuid, old_row.get('name'), old_row.get('tunnel_ips'),
+                    switch_fault_status)
             deleted_physical_switches = data_dict.get(
-                'deleted_physical_switches')
+                    'deleted_physical_switches')
             deleted_physical_switches.append(phys_switch)
 
     def _process_logical_switch(self, uuid, uuid_dict, data_dict):
@@ -421,11 +421,11 @@ class OVSDBMonitor(base_connection.BaseConnection):
                                                   new_row.get('description'))
             if old_row:
                 modified_logical_switches = data_dict.get(
-                    'modified_logical_switches')
+                        'modified_logical_switches')
                 modified_logical_switches.append(l_switch)
             else:
                 new_logical_switches = data_dict.get(
-                    'new_logical_switches')
+                        'new_logical_switches')
                 new_logical_switches.append(l_switch)
         elif old_row:
             l_switch = ovsdb_schema.LogicalSwitch(uuid,
@@ -433,7 +433,7 @@ class OVSDBMonitor(base_connection.BaseConnection):
                                                   old_row.get('tunnel_key'),
                                                   old_row.get('description'))
             deleted_logical_switches = data_dict.get(
-                'deleted_logical_switches')
+                    'deleted_logical_switches')
             deleted_logical_switches.append(l_switch)
 
     def _process_ucast_macs_local(self, uuid, uuid_dict, data_dict):
@@ -452,11 +452,11 @@ class OVSDBMonitor(base_connection.BaseConnection):
                                                     new_row.get('ipaddr'))
             if old_row:
                 modified_local_macs = data_dict.get(
-                    'modified_local_macs')
+                        'modified_local_macs')
                 modified_local_macs.append(mac_local)
             else:
                 new_local_macs = data_dict.get(
-                    'new_local_macs')
+                        'new_local_macs')
                 new_local_macs.append(mac_local)
         elif old_row:
             # A row from UcastMacLocal is deleted.
@@ -468,7 +468,7 @@ class OVSDBMonitor(base_connection.BaseConnection):
                                                     None,
                                                     None)
             deleted_local_macs = data_dict.get(
-                'deleted_local_macs')
+                    'deleted_local_macs')
             deleted_local_macs.append(mac_local)
 
     def _process_ucast_macs_remote(self, uuid, uuid_dict, data_dict):
@@ -487,11 +487,11 @@ class OVSDBMonitor(base_connection.BaseConnection):
                                                       new_row.get('ipaddr'))
             if old_row:
                 modified_remote_macs = data_dict.get(
-                    'modified_remote_macs')
+                        'modified_remote_macs')
                 modified_remote_macs.append(mac_remote)
             else:
                 new_remote_macs = data_dict.get(
-                    'new_remote_macs')
+                        'new_remote_macs')
                 new_remote_macs.append(mac_remote)
         elif old_row:
             logical_switch_list = old_row.get('logical_switch')
@@ -502,7 +502,7 @@ class OVSDBMonitor(base_connection.BaseConnection):
                                                       None,
                                                       None)
             deleted_remote_macs = data_dict.get(
-                'deleted_remote_macs')
+                    'deleted_remote_macs')
             deleted_remote_macs.append(mac_remote)
 
     def _process_physical_locator(self, uuid, uuid_dict, data_dict):
@@ -511,20 +511,26 @@ class OVSDBMonitor(base_connection.BaseConnection):
         old_row = uuid_dict.get('old', None)
         if new_row:
             dstip = new_row['dst_ip']
-            locator = ovsdb_schema.PhysicalLocator(uuid, dstip)
+            if 'tunnel_key' in new_row:
+                locator = ovsdb_schema.PhysicalLocator(uuid,
+                                                       dstip,
+                                                       new_row['tunnel_key'])
+            else:
+                locator = ovsdb_schema.PhysicalLocator(uuid, dstip)
+
             if old_row:
                 modified_physical_locators = data_dict.get(
-                    'modified_physical_locators')
+                        'modified_physical_locators')
                 modified_physical_locators.append(locator)
             else:
                 new_physical_locators = data_dict.get(
-                    'new_physical_locators')
+                        'new_physical_locators')
                 new_physical_locators.append(locator)
         elif old_row:
             dstip = old_row['dst_ip']
             locator = ovsdb_schema.PhysicalLocator(uuid, dstip)
             deleted_physical_locators = data_dict.get(
-                'deleted_physical_locators')
+                    'deleted_physical_locators')
             deleted_physical_locators.append(locator)
 
     def _process_mcast_macs_local(self, uuid, uuid_dict, data_dict):
@@ -541,11 +547,11 @@ class OVSDBMonitor(base_connection.BaseConnection):
                                                       new_row['ipaddr'])
             if old_row:
                 modified_mlocal_macs = data_dict.get(
-                    'modified_mlocal_macs')
+                        'modified_mlocal_macs')
                 modified_mlocal_macs.append(mcast_local)
             else:
                 new_mlocal_macs = data_dict.get(
-                    'new_mlocal_macs')
+                        'new_mlocal_macs')
                 new_mlocal_macs.append(mcast_local)
         elif old_row:
             logical_switch_list = old_row.get('logical_switch')
@@ -556,7 +562,7 @@ class OVSDBMonitor(base_connection.BaseConnection):
                                                       None,
                                                       None)
             deleted_mlocal_macs = data_dict.get(
-                'deleted_mlocal_macs')
+                    'deleted_mlocal_macs')
             deleted_mlocal_macs.append(mcast_local)
 
     def _process_physical_locator_set(self, uuid, uuid_dict, data_dict):
@@ -567,16 +573,16 @@ class OVSDBMonitor(base_connection.BaseConnection):
             locator_set = self._form_locator_set(uuid, new_row)
             if old_row:
                 modified_locator_sets = data_dict.get(
-                    'modified_locator_sets')
+                        'modified_locator_sets')
                 modified_locator_sets.append(locator_set)
             else:
                 new_locator_sets = data_dict.get(
-                    'new_locator_sets')
+                        'new_locator_sets')
                 new_locator_sets.append(locator_set)
         elif old_row:
             locator_set = self._form_locator_set(uuid, old_row)
             deleted_locator_sets = data_dict.get(
-                'deleted_locator_sets')
+                    'deleted_locator_sets')
             deleted_locator_sets.append(locator_set)
 
     def _form_locator_set(self, uuid, row):

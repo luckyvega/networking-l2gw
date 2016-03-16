@@ -47,3 +47,7 @@ class L2gwDriver(object):
     @abc.abstractmethod
     def delete_l2_gateway_connection(self, context, l2_gateway_connection):
         pass
+
+    @abc.abstractmethod
+    def create_remote_unknown(self, context, remote_unknown):
+        pass
