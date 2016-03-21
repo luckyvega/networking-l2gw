@@ -82,3 +82,15 @@ class L2RemoteGatewayConnection(model_base.BASEV2, models_v2.HasId):
                                )
     seg_id = sa.Column(sa.String(255))
     flood = sa.Column(sa.String(5))
+
+
+class L2RemoteMac(model_base.BASEV2):
+    mac = sa.Column(sa.String(17), primary_key=True)
+    ipaddr = sa.Column(sa.String(64))
+    rgw_connection_id = sa.Column(sa.String(36),
+                               sa.ForeignKey('l2remotegatewayconnections.id',
+                                             ondelete='CASCADE'),
+                               primary_key=True
+                               )
+    __table_args__ = (sa.UniqueConstraint(mac,
+                                          rgw_connection_id),)

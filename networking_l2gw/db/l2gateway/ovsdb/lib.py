@@ -69,6 +69,12 @@ def delete_physical_locator(context, record_dict):
                 uuid=record_dict['uuid'],
                 ovsdb_identifier=record_dict['ovsdb_identifier']).delete()
 
+def delete_physical_locators_for_ovsdb(context, ovsdb_identifier):
+    locators = context.session.query(models.PhysicalLocators).filter_by(
+        ovsdb_identifier=ovsdb_identifier
+    ).all()
+    for locator in locators:
+        context.session.delete(locator)
 
 def add_physical_switch(context, record_dict):
     """Insert a new physical switch."""
@@ -115,6 +121,19 @@ def delete_logical_switch(context, record_dict):
                 ovsdb_identifier=record_dict['ovsdb_identifier']).delete()
 
 
+def delete_logical_switch_by_name(context, name, ovsdb_identifier):
+    switch = context.session.query(models.LogicalSwitches).filter_by(
+            name=name,
+            ovsdb_identifier=ovsdb_identifier
+    ).one()
+    bind_list = context.session.query(models.VlanBindings).filter_by(
+            logical_switch_uuid=switch.uuid
+    ).all()
+    for vlan_binding in bind_list:
+        context.session.delete(vlan_binding)
+    context.session.delete(switch)
+
+
 def add_physical_port(context, record_dict):
     """Insert a new physical port."""
     session = context.session
@@ -139,10 +158,18 @@ def update_physical_ports_status(context, record_dict):
 
 def update_physical_switch_status(context, record_dict):
     """Update physical switch fault status."""
+    new_record = {
+        'switch_fault_status': record_dict['switch_fault_status']
+    }
+    if 'tunnel_ip' in record_dict:
+        if isinstance(record_dict['tunnel_ip'], list):
+            new_record['tunnel_ip'] = ''
+        else:
+            new_record['tunnel_ip'] = record_dict['tunnel_ip']
     with context.session.begin(subtransactions=True):
         (context.session.query(models.PhysicalSwitches).
          filter(models.PhysicalSwitches.uuid == record_dict['uuid']).
-         update({'switch_fault_status': record_dict['switch_fault_status']},
+         update(new_record,
          synchronize_session=False))
 
 
@@ -218,6 +245,20 @@ def delete_ucast_mac_remote(context, record_dict):
             session.query(models.UcastMacsRemotes).filter_by(
                 uuid=record_dict['uuid'],
                 ovsdb_identifier=record_dict['ovsdb_identifier']).delete()
+
+
+def delete_macs_for_ovsdb(context, ovsdb_identifier):
+    macs = context.session.query(models.UcastMacsRemotes).filter_by(
+            ovsdb_identifier=ovsdb_identifier
+    ).all()
+    for mac in macs:
+        context.session.delete(mac)
+    macs = context.session.query(models.UcastMacsLocals).filter_by(
+            ovsdb_identifier=ovsdb_identifier
+    ).all()
+    for mac in macs:
+        context.session.delete(mac)
+
 
 
 def get_physical_port(context, record_dict):
@@ -526,3 +567,14 @@ def get_all_remote_gw_ips(context):
         for rgw in remote_gws:
             rgw_ips.append(rgw.ipaddr)
     return rgw_ips
+
+
+def get_device_by_name(context, name):
+    try:
+        query = context.session.query(l2gw_models.L2GatewayDevice)
+        device = query.filter_by(
+                device_name=name).one()
+    except exc.NoResultFound:
+        LOG.debug('no gateway device found for %s', name)
+        return
+    return device

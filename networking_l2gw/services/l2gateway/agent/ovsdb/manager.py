@@ -43,8 +43,8 @@ class OVSDBManager(base_agent_manager.BaseAgentManager):
     """
     def __init__(self, conf=None):
         super(OVSDBManager, self).__init__(conf)
-        self._extract_ovsdb_config(conf)
         self.enable_manager = cfg.CONF.ovsdb.enable_manager
+        self._extract_ovsdb_config(conf)
         if self.enable_manager:
             self.ovsdb_fd = None
             self._sock_open_connection()

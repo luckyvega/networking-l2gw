@@ -468,9 +468,17 @@ class L2GatewayMixin(l2gateway.L2GatewayPluginBase,
             models.L2RemoteGatewayConnection).filter_by(
                 remote_gateway=rgw, seg_id=seg_id).one()
 
+    @staticmethod
+    def _get_remote_connection_by_gateway_id(context, gw_id):
+        return context.session.query(
+            models.L2RemoteGatewayConnection).filter_by(
+                gateway=gw_id
+            ).all()
+
     def create_l2_remote_gateway_connection(self, context,
                                             l2_remote_gateway_connection):
         self._admin_check(context, 'POST')
+        LOG.debug("Creating new remote gateway connection")
         rgw_conn = l2_remote_gateway_connection['l2_remote_gateway_connection']
 
         with context.session.begin(subtransactions=True):
@@ -792,15 +800,48 @@ class L2GatewayMixin(l2gateway.L2GatewayPluginBase,
 
         return res
 
-    def create_l2_remote_mac(self, context, remote_gateway_conn):
-        pass
+    def create_l2_remote_mac(self, context, remote_mac):
+        with context.session.begin(subtransactions=True):
+            mac_db = models.L2RemoteMac(
+                mac=remote_mac['mac'],
+                ipaddr=remote_mac['ipaddr'],
+                rgw_connection_id=remote_mac['rgw_connection']
+            )
+            context.session.add(mac_db)
 
-    def delete_l2_remote_mac(self, context, id):
-        pass
+    def delete_l2_remote_mac(self, context, remote_mac):
+        with context.session.begin(subtransactions=True):
+            mac_db = context.session.query(
+                models.L2RemoteMac).filter_by(
+                mac=remote_mac['mac'],
+                rgw_connection_id=remote_mac['rgw_connection']
+            ).one()
+            context.session.delete(mac_db)
 
     def _get_logical_sw_by_name(self, context, name):
         return context.session.query(models2.LogicalSwitches).filter_by(
             name=name).one()
+
+    def get_unused_device(self, context):
+        device_list = context.session.query(
+            models2.PhysicalSwitches.name).all()
+        active_devices = context.session.query(
+            models.L2GatewayDevice.device_name
+        ).all()
+        for device in device_list:
+            if device not in active_devices:
+                return context.session.query(
+                    models2.PhysicalSwitches
+                    ).filter_by(
+                        name=device.name
+                    ).one()
+        return
+
+    def get_device_interface(self, context, uuid):
+        return context.session.query(
+            models2.PhysicalPorts.name).filter_by(
+                physical_switch_id=uuid
+            ).one()
 
 
 def l2gw_callback(resource, event, trigger, **kwargs):
