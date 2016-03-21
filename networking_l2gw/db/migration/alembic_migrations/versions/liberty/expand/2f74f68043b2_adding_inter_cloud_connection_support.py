@@ -54,3 +54,10 @@ def upgrade():
 
     op.add_column('physical_locators',
                   sa.Column('tunnel_key', sa.Integer(), nullable=True))
+
+    op.create_table('l2remotemacs',
+                    sa.Column('mac', sa.String(length=17), nullable=False),
+                    sa.Column('ipaddr', sa.String(length=64), nullable=True),
+                    sa.Column('rgw_connection_id', sa.String(length=255),
+                              nullable=True),
+                    sa.PrimaryKeyConstraint('mac','rgw_connection_id'))

@@ -207,3 +207,42 @@ class DelRemoteConnection(cmd.BaseCommand):
         for mac in self.api._tables['Ucast_Macs_Remote'].rows.values():
             if mac.locator == locator:
                 mac.delete()
+
+class CleanDb(cmd.BaseCommand):
+    def __init__(self, api):
+        super(CleanDb, self).__init__(api)
+
+    def run_idl(self, txn):
+        ucast_macs = self.api._tables['Ucast_Macs_Remote'].rows.values()
+        for mac in ucast_macs:
+            mac.delete()
+
+        ucast_macs = self.api._tables['Ucast_Macs_Local'].rows.values()
+        for mac in ucast_macs:
+            mac.delete()
+
+        mcast_macs = self.api._tables['Mcast_Macs_Remote'].rows.values()
+        for mac in mcast_macs:
+            mac.delete()
+
+        mcast_macs = self.api._tables['Mcast_Macs_Local'].rows.values()
+        for mac in mcast_macs:
+            mac.delete()
+
+        ps_list = self.api._tables['Physical_Switch'].rows.values()
+        for switch in ps_list:
+
+            tunnels = switch.tunnels
+            for tunnel in tunnels:
+                tunnel.delete()
+
+            ports = switch.ports
+            for port in ports:
+
+                port.vlan_stats = {}
+                port.vlan_bindings = {}
+
+        switches = self.api._tables['Logical_Switch'].rows.values()
+        for s in switches:
+            s.delete()
+

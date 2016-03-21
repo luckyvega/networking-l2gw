@@ -55,7 +55,7 @@ class L2GatewayOVSDBCallbacks(object):
             self.ovsdb = self.get_ovsdbdata_object(ovsdb_states.keys()[0])
         if self.ovsdb:
             LOG.debug("ovsdb_states = %s", ovsdb_states)
-            self.ovsdb.notify_ovsdb_states(context, ovsdb_states)
+            self.ovsdb.notify_ovsdb_states(context, ovsdb_states, self.plugin.service_plugin)
 
     def get_ovsdbdata_object(self, ovsdb_identifier):
         return OVSDBData(ovsdb_identifier)
@@ -81,7 +81,7 @@ class OVSDBData(object):
         if ovsdb_data.get('new_remote_macs'):
             self._handle_l2pop(context, ovsdb_data.get('new_remote_macs'))
 
-    def notify_ovsdb_states(self, context, ovsdb_states):
+    def notify_ovsdb_states(self, context, ovsdb_states, service_plugin=None):
         """RPC to notify the OVSDB servers connection state."""
         for ovsdb_identifier, state in ovsdb_states.items():
             if state == 'connected':
@@ -139,6 +139,8 @@ class OVSDBData(object):
                         except Exception as ex:
                             LOG.exception(_LE("Exception occurred = %s"),
                                           str(ex))
+            else:
+                service_plugin.handle_ha(context, ovsdb_identifier)
 
     def _setup_entry_table(self):
         self.entry_table = {'new_logical_switches':

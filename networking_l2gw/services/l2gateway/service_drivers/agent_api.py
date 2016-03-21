@@ -104,9 +104,7 @@ class L2gatewayAgentApi(object):
 
     def create_remote_unknown(self, context, ovsdb_identifier,
                               remote_gw_connection):
-        LOG.debug("Sending create unknown to agent for ipaddr: '%s', "
-                  "seg_id: '%s'", remote_gw_connection['ipaddr'],
-                  remote_gw_connection['seg_id'])
+        LOG.debug("Sending create unknown to agent: %s", remote_gw_connection)
         cctxt = self.client.prepare()
         return cctxt.call(context,
                           'create_remote_unknown',

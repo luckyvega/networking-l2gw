@@ -21,6 +21,7 @@ from neutron.services import service_base
 
 from networking_l2gw._i18n import _LE
 from networking_l2gw.db.l2gateway import l2gateway_db
+from networking_l2gw.db.l2gateway.ovsdb import lib as db
 from networking_l2gw.services.l2gateway.common import config
 from networking_l2gw.services.l2gateway.common import constants
 
@@ -112,14 +113,18 @@ class L2GatewayPlugin(l2gateway_db.L2GatewayMixin):
         return super(L2GatewayPlugin, self).create_l2_gateway_connection(
             context, l2_gateway_connection)
 
-    def delete_l2_gateway_connection(self, context, l2_gateway_connection):
+    def delete_l2_gateway_connection(self,
+                                     context,
+                                     l2_gateway_connection,
+                                     send_to_ovsdb=True):
         """Process the call from the CLI and trigger the RPC,
 
         to update the connection from the gateway.
         """
-        self._get_driver_for_provider(constants.l2gw
-                                      ).delete_l2_gateway_connection(
-            context, l2_gateway_connection)
+        if send_to_ovsdb:
+            self._get_driver_for_provider(constants.l2gw
+                                          ).delete_l2_gateway_connection(
+                context, l2_gateway_connection)
         return super(L2GatewayPlugin, self).delete_l2_gateway_connection(
             context, l2_gateway_connection)
 
@@ -131,6 +136,7 @@ class L2GatewayPlugin(l2gateway_db.L2GatewayMixin):
         )
         rgw_conn = l2_remote_gateway_connection['l2_remote_gateway_connection']
         if 'flood' in rgw_conn:
+            LOG.debug("Sending create unknown mac to agent")
             self._send_create_remote_unknown(context, rgw_conn)
         return rgw_db_conn
 
@@ -152,20 +158,21 @@ class L2GatewayPlugin(l2gateway_db.L2GatewayMixin):
             context,
             remote_gw_connection)
 
-    def delete_l2_remote_gateway_connection(self, context, id):
+    def delete_l2_remote_gateway_connection(self, context,
+                                            id, send_to_ovsdb=True):
         LOG.debug("Sending delete remote gateway connection creation "
                   "to L2GW agent.")
-        self._get_driver_for_provider(constants.l2gw
-                                      ).delete_l2_remote_gateway_connection(
-            context, id)
+        if send_to_ovsdb:
+            self._get_driver_for_provider(constants.l2gw
+                                          ).delete_l2_remote_gateway_connection(
+                context, id)
         super(L2GatewayPlugin,
               self).delete_l2_remote_gateway_connection(context, id)
 
     def create_l2_remote_mac(self, context, l2_remote_mac):
+        self._admin_check(context, 'CREATE')
         LOG.debug('creating new remote MAC')
-
         remote_mac = l2_remote_mac['l2_remote_mac']
-
         rgw_conn_db = super(L2GatewayPlugin,
                             self)._get_l2_remote_gateway_connection(
             context, remote_mac['rgw_connection'])
@@ -193,7 +200,7 @@ class L2GatewayPlugin(l2gateway_db.L2GatewayMixin):
             ucast_mac['ipaddr'] = remote_mac['ipaddr']
         else:
             ucast_mac['ipaddr'] = None
-
+        super(L2GatewayPlugin, self).create_l2_remote_mac(context, remote_mac)
         self._get_driver_for_provider(constants.l2gw
                                       ).add_ucast_mac_remote(context,
                                                              ucast_mac)
@@ -201,11 +208,119 @@ class L2GatewayPlugin(l2gateway_db.L2GatewayMixin):
                 'rgw_connection': remote_mac['rgw_connection']}
 
     def delete_l2_remote_mac(self, context, id):
+        self._admin_check(context, 'DELETE')
         LOG.debug("Deleting remote MAC id: '%s'", id)
-
+        remote_mac = self.get_l2_remote_mac(context, id)
+        super(L2GatewayPlugin,
+              self).delete_l2_remote_mac(context, remote_mac)
         mac_db = super(
             L2GatewayPlugin,
             self)._get_ucast_mac_remote_by_id(context, id)
         self._get_driver_for_provider(
             constants.l2gw).del_ucast_mac_remote(
                 context, mac_db.ovsdb_identifier, id)
+
+    def handle_ha(self, context, ovsdb_identifier):
+        LOG.debug("**** handling HA *****")
+        switch_list = db.get_all_physical_switches_by_ovsdb_id(
+            context, ovsdb_identifier
+        )
+        for switch in switch_list:
+            device = db.get_device_by_name(context, switch.name)
+            if device:
+                LOG.debug("** faulty device %s needs replacement **",
+                          switch.name)
+                self.do_failover(
+                    context,
+                    device.l2_gateway_id,
+                    ovsdb_identifier
+                )
+
+    def do_failover(self, context, l2_gateway_id, ovsdb_identifier):
+        new_gw = self._create_new_gateway(context, l2_gateway_id)
+        if not new_gw:
+            LOG.debug("*** There is no available device ***")
+            return
+        self.move_connections(context, new_gw, l2_gateway_id, ovsdb_identifier)
+        super(
+            L2GatewayPlugin,
+            self
+        ).delete_l2_gateway(context, l2_gateway_id)
+        db.delete_physical_locators_for_ovsdb(context, ovsdb_identifier)
+        db.delete_macs_for_ovsdb(context, ovsdb_identifier)
+        self._move_remote_connections(context, l2_gateway_id, new_gw['id'])
+
+    def _create_new_gateway(self, context, l2_gateway_id):
+        # find available device
+        new_device = super(
+                L2GatewayPlugin,
+                self).get_unused_device(context)
+        if not new_device:
+            return
+        device_interface = super(
+                L2GatewayPlugin,
+                self).get_device_interface(context,new_device.uuid)
+        failed_l2gw = super(
+                L2GatewayPlugin,
+                self).get_l2_gateway(context,l2_gateway_id)
+        new_gateway = {constants.GATEWAY_RESOURCE_NAME: {
+            "name": failed_l2gw.get("name"),
+            "tenant_id": failed_l2gw.get("tenant_id"),
+            "devices": [
+                {
+                    "device_name": new_device['name'],
+                    "interfaces": [
+                        {
+                            "name": device_interface.name
+                        }
+                    ]
+                }
+            ]}
+        }
+        return self.create_l2_gateway(context, new_gateway)
+
+    def move_connections(self, context, new_gw, old_gw_id, ovsdb_identifier):
+        old_connection_list = super(
+            L2GatewayPlugin,
+            self)._retrieve_gateway_connections(context, old_gw_id)
+        for connection in old_connection_list:
+            gw_connection = {'l2_gateway_connection': {
+                'l2_gateway_id': new_gw['id'],
+                'network_id': connection['network_id'],
+                'segmentation_id': str(connection['segmentation_id']),
+
+                'tenant_id': connection['tenant_id']
+                }
+            }
+            LOG.debug("Creating gateway connection: %s",
+                      gw_connection)
+            self.create_l2_gateway_connection(context, gw_connection)
+            LOG.debug("deleting connection %s from faulty switch",
+                      connection['id'])
+            self.delete_l2_gateway_connection(context, connection['id'], False)
+            db.delete_logical_switch_by_name(
+                context, connection['network_id'], ovsdb_identifier)
+
+    def _move_remote_connections(self, context, old_gw_id, new_gw_id):
+        LOG.debug("Moving remote connections")
+        remote_connections = super(L2GatewayPlugin,
+                                   self)._get_remote_connection_by_gateway_id(context, old_gw_id)
+        for remote_connection in remote_connections:
+            l2_remote_connection = {
+                'l2_remote_gateway_connection': {
+                    'gateway': new_gw_id,
+                    'network': remote_connection.network,
+                    'remote_gateway': remote_connection.remote_gateway,
+                    'seg_id': remote_connection.seg_id,
+                    'flood': remote_connection.flood
+                }
+            }
+            self.delete_l2_remote_gateway_connection(
+                    context,
+                    remote_connection.id,
+                    False
+            )
+            self.create_l2_remote_gateway_connection(
+                    context,
+                    l2_remote_connection
+            )

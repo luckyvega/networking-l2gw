@@ -149,3 +149,6 @@ class OvsdbHardwareVtepIdl():
 
     def del_mcast_macs_remote_by_id(self, mac_uuid):
         return cmd.DelUcastMacsRemote(self, mac_uuid)
+
+    def clean_db(self):
+        return cmd.CleanDb(self)

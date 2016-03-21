@@ -98,7 +98,7 @@ class L2RemoteMacPluginBase(extensions.PluginInterface):
         pass
 
     @abc.abstractmethod
-    def create_l2_remote_mac(self, context, remote_gateway_conn):
+    def create_l2_remote_mac(self, context, remote_mac):
         pass
 
     @abc.abstractmethod
