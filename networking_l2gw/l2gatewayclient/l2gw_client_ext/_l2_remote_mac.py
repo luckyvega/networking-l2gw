@@ -48,16 +48,13 @@ class L2RemoteMacCreate(extension.ClientExtensionCreate,
         parser.add_argument(
             'rgw_connection', metavar='<REMOTE-GATEWAY-CONN-UUID>',
             help=_('Remote Gateway Connection UUID.'))
-        parser.add_argument(
-            '--ipaddr', metavar='ipaddr',
-            help=_('Remote host IP address'))
 
     def args2body(self, parsed_args):
         body = {'l2_remote_mac': {
             'mac': parsed_args.mac,
             'rgw_connection': parsed_args.rgw_connection,
-            'ipaddr': parsed_args.ipaddr},
-            }
+        },
+        }
         return body
 
 

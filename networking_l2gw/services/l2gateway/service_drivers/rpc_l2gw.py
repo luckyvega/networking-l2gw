@@ -14,6 +14,8 @@
 #    under the License.
 
 import abc
+import socket
+
 from neutron.common import exceptions
 from neutron.common import rpc as n_rpc
 from neutron.db import agents_db
@@ -42,7 +44,7 @@ LOG = logging.getLogger(__name__)
 L2GW = 'l2gw'
 L2GW_CALLBACK = ("networking_l2gw.services.l2gateway.ovsdb."
                  "data.L2GatewayOVSDBCallbacks")
-
+L3_DVR_AGENT = 'network:router_interface_distributed'
 
 @six.add_metaclass(abc.ABCMeta)
 class L2gwRpcDriver(service_drivers.L2gwDriver):
@@ -468,6 +470,8 @@ class L2gwRpcDriver(service_drivers.L2gwDriver):
 
     def _get_ip_details(self, context, port):
         host = port[portbindings.HOST_ID]
+        if not host and port['device_owner'] == L3_DVR_AGENT:
+            return self._get_l3_dvr_agent_details(context, port)
         agent = self._get_agent_details(context, host)
         if agent:
             conf_dict = agent[0].get("configurations")
@@ -477,6 +481,31 @@ class L2gwRpcDriver(service_drivers.L2gwDriver):
             return dst_ip, fixed_ip_list.get('ip_address')
         else:
             raise l2gw_exc.OvsAgentNotFound(host=host)
+
+    def _get_l3_dvr_agent_details(self, context, port):
+        """
+        in case of DVR, the router port will not have host information as
+        there is router in each Compute Node and in the Compute Node.
+        Here we look for the L3 Agent in the Network Node, get its hostname and
+        resolve its hostname to IP address to be used as destination IP.
+
+        """
+        agents = self.service_plugin._core_plugin.get_agents(
+                context,
+                filters={'agent_type': [n_const.AGENT_TYPE_L3]})
+        for agent in agents:
+            conf_dict = agent.get("configurations")
+            if conf_dict.get("agent_mode") == 'dvr_snat':
+                fixed_ip_list = port.get('fixed_ips')
+                fixed_ip = fixed_ip_list[0].get('ip_address')
+                dst_ip = socket.gethostbyname(agent.get('host'))
+                if not dst_ip or dst_ip == '127.0.0.1':
+                    raise l2gw_exc.DvrAgentHostnameNotFound()
+                LOG.debug(
+                        'Adding DVR dst_ip: %s, fixed_ip: %s', dst_ip, fixed_ip
+                )
+                return dst_ip, fixed_ip
+        raise l2gw_exc.L3DvrAgentNotFound()
 
     def _get_network_details(self, context, network_id):
         network = self.service_plugin._core_plugin.get_network(context,
@@ -586,30 +615,37 @@ class L2gwRpcDriver(service_drivers.L2gwDriver):
                 for port in ports:
                     mac_list = []
                     if port['device_owner']:
-                        dst_ip, ip_address = self._get_ip_details(context,
-                                                                  port)
+                        try:
+                            dst_ip, ip_address = self._get_ip_details(
+                                    context, port)
+                        except l2gw_exc.OvsAgentNotFound:
+                            LOG.debug('ignoring port without host info')
+                            continue
                         mac_remote = self._get_dict(
-                            ovsdb_schema.UcastMacsRemote(
-                                uuid=None,
-                                mac=port.get('mac_address'),
-                                logical_switch_id=None,
-                                physical_locator_id=None,
-                                ip_address=ip_address))
+                                ovsdb_schema.UcastMacsRemote(
+                                        uuid=None,
+                                        mac=port.get('mac_address'),
+                                        logical_switch_id=None,
+                                        physical_locator_id=None,
+                                        ip_address=ip_address))
                         if logical_switch:
                             u_mac_dict['mac'] = port.get('mac_address')
-                            u_mac_dict['ovsdb_identifier'] = ovsdb_identifier
+                            u_mac_dict[
+                                'ovsdb_identifier'
+                            ] = ovsdb_identifier
                             u_mac_dict['logical_switch_uuid'] = (
                                 logical_switch.get('uuid'))
                             ucast_mac_remote = (
                                 db.get_ucast_mac_remote_by_mac_and_ls(
-                                    context, u_mac_dict))
+                                        context, u_mac_dict))
                             if not ucast_mac_remote:
                                 mac_list.append(mac_remote)
                         else:
                             mac_list.append(mac_remote)
                         locator_list = self._get_locator_list(
-                            context, dst_ip, ovsdb_identifier, mac_list,
-                            locator_list)
+                                context, dst_ip, ovsdb_identifier,
+                                mac_list,
+                                locator_list)
             for locator in locator_list:
                 mac_dict[locator.get('dst_ip')] = locator.pop('macs')
                 locator.pop('ovsdb_identifier')
