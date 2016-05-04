@@ -45,3 +45,5 @@ SWITCH_FAULT_STATUS_UP = "UP"
 VXLAN = "vxlan"
 CREATE = "CREATE"
 DELETE = "DELETE"
+L3_DVR_AGENT = 'network:router_interface_distributed'
+DVR_SNAT = 'dvr_snat'
