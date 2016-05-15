@@ -20,6 +20,7 @@ from neutron.db import agents_db
 from neutron.extensions import portbindings
 
 from networking_l2gw._i18n import _LE
+from networking_l2gw.db.l2gateway import l2gateway_db as l2_gw_db
 from networking_l2gw.db.l2gateway.ovsdb import lib as db
 from networking_l2gw.services.l2gateway import agent_scheduler
 from networking_l2gw.services.l2gateway.common import constants
@@ -30,7 +31,10 @@ from networking_l2gw.services.l2gateway import exceptions as l2gw_exc
 from networking_l2gw.services.l2gateway import service_drivers
 from networking_l2gw.services.l2gateway.service_drivers import agent_api
 
+from neutron.plugins.ml2 import managers
+
 from neutron_lib import constants as n_const
+from neutron_lib import exceptions
 from oslo_config import cfg
 from oslo_log import log as logging
 import oslo_messaging as messaging
@@ -62,6 +66,9 @@ class L2gwRpcDriver(service_drivers.L2gwDriver):
         self.create_rpc_conn()
         LOG.debug("starting l2gateway agent scheduler")
         self.start_l2gateway_agent_scheduler()
+        self.gateway_resource = constants.GATEWAY_RESOURCE_NAME
+        self.l2gateway_db = l2_gw_db.L2GatewayMixin()
+        self.type_manager = managers.TypeManager()
 
     @property
     def service_type(self):
@@ -468,15 +475,14 @@ class L2gwRpcDriver(service_drivers.L2gwDriver):
 
     def _get_ip_details(self, context, port):
         host = port[portbindings.HOST_ID]
+        if not host and port['device_owner'] == constants.L3_DVR_AGENT:
+            return self._get_l3_dvr_agent_details(context, port)
         agent = self._get_agent_details(context, host)
-        if agent:
-            conf_dict = agent[0].get("configurations")
-            dst_ip = conf_dict.get("tunneling_ip")
-            fixed_ip_list = port.get('fixed_ips')
-            fixed_ip_list = fixed_ip_list[0]
-            return dst_ip, fixed_ip_list.get('ip_address')
-        else:
-            raise l2gw_exc.OvsAgentNotFound(host=host)
+        conf_dict = agent.get("configurations")
+        dst_ip = conf_dict.get("tunneling_ip")
+        fixed_ip_list = port.get('fixed_ips')
+        fixed_ip_list = fixed_ip_list[0]
+        return dst_ip, fixed_ip_list.get('ip_address')
 
     def _get_network_details(self, context, network_id):
         network = self.service_plugin._core_plugin.get_network(context,
@@ -489,11 +495,49 @@ class L2gwRpcDriver(service_drivers.L2gwDriver):
         return ports
 
     def _get_agent_details(self, context, host):
-        agent = self.service_plugin._core_plugin.get_agents(
+        l2_agent = None
+        agents = self.service_plugin._core_plugin.get_agents(
+            context, filters={'host': [host]})
+        for agent in agents:
+            agent_tunnel_type = agent['configurations'].get('tunnel_types', [])
+            if constants.VXLAN in agent_tunnel_type:
+                l2_agent = agent
+                break
+        if not l2_agent:
+            raise l2gw_exc.L2AgentNotFoundByHost(
+                host=host)
+        return l2_agent
+
+    def _get_l3_dvr_agent_details(self, context, port):
+        """Getting host IP for router port in DVR mode
+
+        in case of DVR, the router port will not have host information as
+        there is router in each Compute Node and in the Compute Node.
+        Here we look for the L3 Agent in the Network Node, get its hostname and
+        resolve its hostname to IP address to be used as destination IP.
+        """
+        endpoints = self.type_manager.drivers.get('vxlan').obj.get_endpoints()
+        agents = self.service_plugin._core_plugin.get_agents(
             context,
-            filters={'agent_type': [n_const.AGENT_TYPE_OVS],
-                     'host': [host]})
-        return agent
+            filters={'agent_type': [n_const.AGENT_TYPE_L3]})
+        for agent in agents:
+            conf_dict = agent.get("configurations")
+            if conf_dict.get("agent_mode") == constants.DVR_SNAT:
+                fixed_ip_list = port.get('fixed_ips')
+                fixed_ip = fixed_ip_list[0].get('ip_address')
+                hostname = agent.get('host')
+                dst_ip = None
+                for endpoint in endpoints:
+                    if endpoint.get('host') == hostname:
+                        dst_ip = endpoint.get('ip_address')
+                        break
+                if not dst_ip:
+                    raise l2gw_exc.DvrAgentHostnameNotFound(host=hostname)
+                LOG.debug(
+                    'Adding DVR dst_ip: %s, fixed_ip: %s', dst_ip, fixed_ip
+                )
+                return dst_ip, fixed_ip
+        raise l2gw_exc.L3DvrAgentNotFound()
 
     def _get_logical_switch_dict(self, context, logical_switch, gw_connection):
         if logical_switch:

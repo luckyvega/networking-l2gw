@@ -37,6 +37,10 @@ class L2GatewayDeviceInUse(exceptions.InUse):
                 "one or more network gateways.")
 
 
+class L2AgentNotFoundByHost(exceptions.NotFound):
+    message = _("L2 Agent for host '%(host)s' could not be found.")
+
+
 class L2GatewayDeviceNotFound(exceptions.NotFound):
     message = _("L2 Gateway Device %(device_id)s could not be found.")
 
