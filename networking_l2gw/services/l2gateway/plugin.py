@@ -239,9 +239,10 @@ class L2GatewayPlugin(l2gateway_db.L2GatewayMixin):
         LOG.debug("Sending delete remote gateway connection creation "
                   "to L2GW agent.")
         if send_to_ovsdb:
-            self._get_driver_for_provider(constants.l2gw
-                                          ).delete_l2_remote_gateway_connection(
-                context, id)
+            self._get_driver_for_provider(
+                constants.l2gw
+            ).delete_l2_remote_gateway_connection(
+                    context, id)
         super(L2GatewayPlugin,
               self).delete_l2_remote_gateway_connection(context, id)
 
@@ -329,16 +330,16 @@ class L2GatewayPlugin(l2gateway_db.L2GatewayMixin):
     def _create_new_gateway(self, context, l2_gateway_id):
         # find available device
         new_device = super(
-                L2GatewayPlugin,
-                self).get_unused_device(context)
+            L2GatewayPlugin,
+            self).get_unused_device(context)
         if not new_device:
             return
         device_interface = super(
-                L2GatewayPlugin,
-                self).get_device_interface(context,new_device.uuid)
+            L2GatewayPlugin,
+            self).get_device_interface(context,new_device.uuid)
         failed_l2gw = super(
-                L2GatewayPlugin,
-                self).get_l2_gateway(context,l2_gateway_id)
+            L2GatewayPlugin,
+            self).get_l2_gateway(context,l2_gateway_id)
         new_gateway = {constants.GATEWAY_RESOURCE_NAME: {
             "name": failed_l2gw.get("name"),
             "tenant_id": failed_l2gw.get("tenant_id"),

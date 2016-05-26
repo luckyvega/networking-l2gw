@@ -34,21 +34,7 @@ class Connection(connection.Connection):
         super(Connection, self).__init__(connection, timeout, schema_name)
 
     def accept(self):
-        session = Session.open(self.connection)
-        # first call to session.run creates the PassiveStream object and second
-        # one accept incoming connection
-        session.run()
-        session.run()
-
-        helper = idlutils.get_schema_helper_from_stream(session.stream,
-                                                        'hardware_vtep')
-        helper.register_all()
-        self.idl = idl.Idl(self.connection, helper, session)
-        idlutils.wait_for_change(self.idl, self.timeout)
-        self.poller = poller.Poller()
-        self.thread = threading.Thread(target=self.run)
-        self.thread.setDaemon(True)
-        self.thread.start()
+        pass
 
 
 class OvsdbHardwareVtepIdl():

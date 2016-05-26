@@ -69,12 +69,14 @@ def delete_physical_locator(context, record_dict):
                 uuid=record_dict['uuid'],
                 ovsdb_identifier=record_dict['ovsdb_identifier']).delete()
 
+
 def delete_physical_locators_for_ovsdb(context, ovsdb_identifier):
     locators = context.session.query(models.PhysicalLocators).filter_by(
         ovsdb_identifier=ovsdb_identifier
     ).all()
     for locator in locators:
         context.session.delete(locator)
+
 
 def add_physical_switch(context, record_dict):
     """Insert a new physical switch."""
@@ -123,11 +125,11 @@ def delete_logical_switch(context, record_dict):
 
 def delete_logical_switch_by_name(context, name, ovsdb_identifier):
     switch = context.session.query(models.LogicalSwitches).filter_by(
-            name=name,
-            ovsdb_identifier=ovsdb_identifier
+        name=name,
+        ovsdb_identifier=ovsdb_identifier
     ).one()
     bind_list = context.session.query(models.VlanBindings).filter_by(
-            logical_switch_uuid=switch.uuid
+        logical_switch_uuid=switch.uuid
     ).all()
     for vlan_binding in bind_list:
         context.session.delete(vlan_binding)
@@ -249,16 +251,15 @@ def delete_ucast_mac_remote(context, record_dict):
 
 def delete_macs_for_ovsdb(context, ovsdb_identifier):
     macs = context.session.query(models.UcastMacsRemotes).filter_by(
-            ovsdb_identifier=ovsdb_identifier
+        ovsdb_identifier=ovsdb_identifier
     ).all()
     for mac in macs:
         context.session.delete(mac)
     macs = context.session.query(models.UcastMacsLocals).filter_by(
-            ovsdb_identifier=ovsdb_identifier
+        ovsdb_identifier=ovsdb_identifier
     ).all()
     for mac in macs:
         context.session.delete(mac)
-
 
 
 def get_physical_port(context, record_dict):
@@ -573,7 +574,7 @@ def get_device_by_name(context, name):
     try:
         query = context.session.query(l2gw_models.L2GatewayDevice)
         device = query.filter_by(
-                device_name=name).one()
+            device_name=name).one()
     except exc.NoResultFound:
         LOG.debug('no gateway device found for %s', name)
         return
