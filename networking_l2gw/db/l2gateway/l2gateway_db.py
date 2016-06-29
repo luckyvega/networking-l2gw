@@ -774,6 +774,7 @@ class L2GatewayMixin(l2gateway.L2GatewayPluginBase,
                 for mac_db in macs_db:
                     rmac = {'uuid': mac_db['uuid'],
                             'mac': mac_db['mac'],
+                            'ipaddr': mac_db['ip_address'],
                             'rgw_connection': rgw_conn_db['id']}
                     rmacs.append(rmac)
         return rmacs
